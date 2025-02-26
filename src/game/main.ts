@@ -3,7 +3,7 @@ import { CanvasService, CanvasServiceConfig, make as makeCanvasService } from '.
 import { renderFps } from './widgets/fps';
 import { makeTheme, Theme } from './context/theme';
 
-function mainLoop(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
+function updateFrame(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
   return Effect.succeedNone.pipe(
     Effect.andThen(() => {
       canvas.clearRect(0, 0, canvasConfig.width, canvasConfig.height);
@@ -14,11 +14,6 @@ function mainLoop(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceC
   );
 }
 
-export function mainGame(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
-  const fn = () => {
-    Effect.runSync(mainLoop(canvas, canvasConfig));
-    requestAnimationFrame(fn);
-  };
-
-  fn();
+export function getFrameUpdater(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
+  return () => Effect.runSync(updateFrame(canvas, canvasConfig));
 }
