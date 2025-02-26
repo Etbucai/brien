@@ -1,3 +1,24 @@
-export function mainGame(canvas: CanvasRenderingContext2D) {
-  // canvas
+import { Effect } from 'effect';
+import { CanvasService, CanvasServiceConfig, make as makeCanvasService } from './context/canvas';
+import { renderFps } from './widgets/fps';
+import { makeTheme, Theme } from './context/theme';
+
+function mainLoop(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
+  return Effect.succeedNone.pipe(
+    Effect.andThen(() => {
+      canvas.clearRect(0, 0, canvasConfig.width, canvasConfig.height);
+    }),
+    Effect.andThen(renderFps),
+    Effect.provideService(CanvasService, makeCanvasService(canvas, canvasConfig)),
+    Effect.provideService(Theme, makeTheme({ text: { fontFamily: 'PingFangHK', fontSize: 18 } })),
+  );
+}
+
+export function mainGame(canvas: CanvasRenderingContext2D, canvasConfig: CanvasServiceConfig) {
+  const fn = () => {
+    Effect.runSync(mainLoop(canvas, canvasConfig));
+    requestAnimationFrame(fn);
+  };
+
+  fn();
 }
