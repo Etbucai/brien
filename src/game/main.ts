@@ -1,8 +1,9 @@
 import { Context, Effect, Ref } from 'effect';
 import { CanvasService, CanvasServiceConfig, make as makeCanvasService } from './context/canvas';
-import { FpsState, IFpsState, renderFps } from './widgets/fps';
+import { renderFps } from './widgets/fps';
 import { makeTheme, Theme } from './context/theme';
 import { Time } from './context/time';
+import { FpsState, IFpsState } from './context/fps';
 
 type StaticService = CanvasService | Theme | FpsState;
 

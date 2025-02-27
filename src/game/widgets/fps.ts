@@ -1,15 +1,8 @@
-import { Context, Effect, Ref } from 'effect';
+import { Effect, Ref } from 'effect';
 import { CanvasService } from '../context/canvas';
 import { Time } from '../context/time';
 import { updateRef } from '../utils/updateRef';
-
-export interface IFpsState {
-  frameCount: number;
-  lastFlushTime: number;
-  lastFps: number;
-}
-
-export class FpsState extends Context.Tag('FpsState')<FpsState, Ref.Ref<IFpsState>>() {}
+import { FpsState } from '../context/fps';
 
 const updateFps = Effect.serviceFunctionEffect(
   Effect.all([FpsState, Time]),
