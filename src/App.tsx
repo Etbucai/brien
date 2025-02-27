@@ -1,35 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { getFrameUpdater } from './game/main';
+import { Game } from './game/main';
+import { Effect } from 'effect';
 
 const canvasWidth = 400;
 const canvasHeight = 300;
 const dpr = window.devicePixelRatio;
 const canvasWidthPx = canvasWidth * dpr;
 const canvasHeightPx = canvasHeight * dpr;
-
-function startFrameLoop(
-  getFrameUpdaterFn: typeof getFrameUpdater,
-  context: CanvasRenderingContext2D,
-) {
-  const update = getFrameUpdaterFn(context, {
-    width: canvasWidth,
-    height: canvasHeight,
-    scale: dpr,
-  });
-
-  let rafId = -1;
-
-  const loopFn = () => {
-    update();
-    rafId = requestAnimationFrame(update);
-  };
-
-  loopFn();
-
-  return () => {
-    cancelAnimationFrame(rafId);
-  };
-}
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -40,14 +17,28 @@ function App() {
       throw new Error('missing context');
     }
 
-    let cancel = startFrameLoop(getFrameUpdater, context);
+    let game = Effect.runSync(
+      Game.create(context, {
+        width: canvasWidth,
+        height: canvasHeight,
+        scale: dpr,
+      }),
+    );
+    game.start();
 
     if (import.meta.hot) {
       import.meta.hot.accept('./game/main', module => {
         if (module) {
           const m = module as unknown as typeof import('./game/main');
-          cancel();
-          cancel = startFrameLoop(m.getFrameUpdater, context);
+          game.pause();
+          game = Effect.runSync(
+            m.Game.create(context, {
+              width: canvasWidth,
+              height: canvasHeight,
+              scale: dpr,
+            }),
+          );
+          game.start();
         }
       });
     }
