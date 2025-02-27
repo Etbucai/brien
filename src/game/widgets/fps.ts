@@ -1,8 +1,8 @@
 import { Effect, Ref } from 'effect';
-import { CanvasService } from '../context/canvas';
-import { Time } from '../context/time';
+import { CanvasService } from '@context/canvas';
+import { Time } from '@context/time';
+import { FpsState } from '@context/fps';
 import { updateRef } from '../utils/updateRef';
-import { FpsState } from '../context/fps';
 
 const updateFps = Effect.serviceFunctionEffect(
   Effect.all([FpsState, Time]),
