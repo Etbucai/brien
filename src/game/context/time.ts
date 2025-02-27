@@ -4,4 +4,4 @@ export interface ITime {
   timestamp: number;
 }
 
-export class Time extends Context.Tag('Time')<Time, ITime>() {}
+export class TimeContext extends Context.Tag('TimeContext')<TimeContext, ITime>() {}

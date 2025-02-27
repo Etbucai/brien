@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Game } from './game/main';
+import * as GameUtils from './game/main';
 import { Effect } from 'effect';
 
 const canvasWidth = 400;
@@ -17,28 +17,32 @@ function App() {
       throw new Error('missing context');
     }
 
+    let gameUtils = GameUtils;
+
     let game = Effect.runSync(
-      Game.create(context, {
+      gameUtils.createGame({
+        context,
         width: canvasWidth,
         height: canvasHeight,
         scale: dpr,
       }),
     );
-    game.start();
+    gameUtils.startGame(game);
 
     if (import.meta.hot) {
       import.meta.hot.accept('./game/main', module => {
         if (module) {
-          const m = module as unknown as typeof import('./game/main');
-          game.pause();
+          gameUtils.pauseGame(game);
+          gameUtils = module as unknown as typeof import('./game/main');
           game = Effect.runSync(
-            m.Game.create(context, {
+            gameUtils.createGame({
+              context,
               width: canvasWidth,
               height: canvasHeight,
               scale: dpr,
             }),
           );
-          game.start();
+          gameUtils.startGame(game);
         }
       });
     }

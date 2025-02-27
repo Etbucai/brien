@@ -1,51 +1,28 @@
 import { Context, Effect } from 'effect';
-import { TextTheme, Theme } from './theme';
+import { TextTheme, ThemeContext } from './theme';
 
-export interface CanvasServiceConfig {
+export interface ICanvas {
   width: number;
   height: number;
   scale: number;
+  context: CanvasRenderingContext2D;
 }
 
-export interface ICanvasService {
-  readonly width: number;
-  readonly height: number;
+export class CanvasContext extends Context.Tag('CanvasContext')<CanvasContext, ICanvas>() {}
 
-  readonly fillTextWithTheme: (text: string, x: number, y: number, textTheme: TextTheme) => void;
-  readonly fillText: (
-    text: string,
-    x: number,
-    y: number,
-    theme?: Partial<TextTheme>,
-  ) => Effect.Effect<void, void, Theme>;
-}
+export const fillTextWithTheme = Effect.serviceFunction(
+  CanvasContext,
+  ({ context, scale }) =>
+    (text: string, x: number, y: number, theme: TextTheme) => {
+      const originFont = context.font;
+      context.font = `${theme.fontSize * scale}px "${theme.fontFamily}"`;
+      context.fillText(text, x * scale, y * scale);
+      context.font = originFont;
+    },
+);
 
-export class CanvasService extends Context.Tag('CanvasService')<CanvasService, ICanvasService>() {}
-
-export function make(
-  canvas: CanvasRenderingContext2D,
-  canvasServiceConfig: CanvasServiceConfig,
-): ICanvasService {
-  const { scale } = canvasServiceConfig;
-
-  const fillTextWithTheme: ICanvasService['fillTextWithTheme'] = (text, x, y, theme) => {
-    const originFont = canvas.font;
-    canvas.font = `${theme.fontSize * scale}px "${theme.fontFamily}"`;
-    canvas.fillText(text, x * scale, y * scale);
-    canvas.font = originFont;
-  };
-
-  const fillText: ICanvasService['fillText'] = (text, x, y, overwriteTextTheme = {}) =>
-    Theme.pipe(
-      Effect.andThen(theme => {
-        fillTextWithTheme(text, x, y, { ...theme.text, ...overwriteTextTheme });
-      }),
-    );
-
-  return {
-    width: canvasServiceConfig.width,
-    height: canvasServiceConfig.height,
-    fillTextWithTheme,
-    fillText,
-  };
-}
+export const fillText = Effect.serviceFunctionEffect(
+  ThemeContext,
+  theme => (text: string, x: number, y: number, overwriteTextTheme?: Partial<TextTheme>) =>
+    fillTextWithTheme(text, x, y, { ...theme.text, ...overwriteTextTheme }),
+);

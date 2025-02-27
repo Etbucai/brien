@@ -9,8 +9,4 @@ export interface ITheme {
   text: TextTheme;
 }
 
-export class Theme extends Context.Tag('Theme')<Theme, ITheme>() {}
-
-export function makeTheme(config: ITheme): ITheme {
-  return config;
-}
+export class ThemeContext extends Context.Tag('ThemeContext')<ThemeContext, ITheme>() {}

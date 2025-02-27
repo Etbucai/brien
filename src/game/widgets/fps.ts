@@ -1,11 +1,11 @@
 import { Effect, Ref } from 'effect';
-import { CanvasService } from '@context/canvas';
-import { Time } from '@context/time';
-import { FpsState } from '@context/fps';
+import { fillTextWithTheme } from '@context/canvas';
+import { TimeContext } from '@context/time';
+import { FpsContext } from '@context/fps';
 import { updateRef } from '../utils/updateRef';
 
 const updateFps = Effect.serviceFunctionEffect(
-  Effect.all([FpsState, Time]),
+  Effect.all([FpsContext, TimeContext]),
   ([fpsStateRef, { timestamp }]) =>
     () =>
       updateRef(fpsStateRef, draft => {
@@ -20,17 +20,17 @@ const updateFps = Effect.serviceFunctionEffect(
 );
 
 const getLastFps = Effect.serviceFunctionEffect(
-  FpsState,
+  FpsContext,
   fpsState => () => Ref.get(fpsState).pipe(Effect.map(it => it.lastFps)),
 );
 
-const renderText = Effect.serviceFunction(CanvasService, canvas => (fps: number) => {
+const renderText = (fps: number) => {
   const fontSize = 18;
-  canvas.fillTextWithTheme(fps.toString(), 0, fontSize, {
+  return fillTextWithTheme(fps.toString(), 0, fontSize, {
     fontFamily: 'PingFangHK',
     fontSize,
   });
-});
+};
 
 export const renderFps = updateFps().pipe(
   //
