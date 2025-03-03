@@ -1,16 +1,16 @@
-import { Context, Effect, Ref } from 'effect';
+import { Context, Effect, Ref, Schedule } from 'effect';
 import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
 import { TimeContext } from './context/time';
 import { FpsContext, FpsState } from './context/fps';
 import { renderFps } from './widgets/fps';
 
-type StaticService = CanvasContext | ThemeContext | FpsContext;
+type StaticContext = CanvasContext | ThemeContext | FpsContext;
 
 export interface IGame {
   canvas: ICanvas;
-  staticContext: Context.Context<StaticService>;
-  rafId: Ref.Ref<number>;
+  staticContext: Context.Context<StaticContext>;
+  isPaused: Ref.Ref<boolean>;
 }
 
 export const createGame = (canvas: ICanvas) =>
@@ -21,7 +21,7 @@ export const createGame = (canvas: ICanvas) =>
       lastFps: 0,
     });
 
-    const rafId = yield* Ref.make(-1);
+    const isPaused = yield* Ref.make(false);
 
     const staticContext = Context.empty().pipe(
       Context.add(CanvasContext, canvas),
@@ -29,36 +29,37 @@ export const createGame = (canvas: ICanvas) =>
       Context.add(FpsContext, fpsState),
     );
 
-    const game: IGame = { canvas, staticContext, rafId };
+    const game: IGame = { canvas, staticContext, isPaused };
     return game;
   });
 
 const updateFrame = ({ canvas }: IGame) =>
-  Effect.sync(() => {
+  Effect.gen(function* () {
     canvas.context.clearRect(0, 0, canvas.width, canvas.height);
+    yield* renderFps();
   }).pipe(
-    //
-    Effect.andThen(renderFps),
-    Effect.provideService(TimeContext, { timestamp: Date.now() }),
+    Effect.provideServiceEffect(
+      TimeContext,
+      Effect.sync(() => ({ timestamp: Date.now() })),
+    ),
   );
 
-export const startGame = (game: IGame) => {
-  const loopFn = () => {
-    Effect.runSync(
-      updateFrame(game).pipe(
-        Effect.andThen(Ref.set(game.rafId, requestAnimationFrame(loopFn))),
-        Effect.provide(game.staticContext),
+export const startGame = (game: IGame) =>
+  updateFrame(game).pipe(
+    Effect.repeat(
+      Schedule.forever.pipe(
+        Schedule.untilOutputEffect(() =>
+          Ref.get(game.isPaused).pipe(
+            Effect.andThen(isPaused =>
+              Effect.async<boolean>(resume => {
+                requestAnimationFrame(() => resume(Effect.succeed(isPaused)));
+              }),
+            ),
+          ),
+        ),
       ),
-    );
-  };
-
-  loopFn();
-};
-
-export const pauseGame = (game: IGame) =>
-  Effect.runSync(
-    Ref.update(game.rafId, rafId => {
-      cancelAnimationFrame(rafId);
-      return -1;
-    }),
+    ),
+    Effect.provide(game.staticContext),
   );
+
+export const pauseGame = (game: IGame) => Ref.set(game.isPaused, true);

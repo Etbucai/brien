@@ -32,8 +32,9 @@ const renderText = (fps: number) => {
   });
 };
 
-export const renderFps = updateFps().pipe(
-  //
-  Effect.andThen(getLastFps),
-  Effect.andThen(renderText),
-);
+export const renderFps = () =>
+  updateFps().pipe(
+    //
+    Effect.andThen(getLastFps),
+    Effect.andThen(renderText),
+  );
