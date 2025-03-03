@@ -44,21 +44,15 @@ const updateFrame = ({ canvas }: IGame) =>
     ),
   );
 
+const nextAnimationFrame = () =>
+  Effect.async(resume => {
+    requestAnimationFrame(() => resume(Effect.succeedNone));
+  });
+
 export const startGame = (game: IGame) =>
   updateFrame(game).pipe(
-    Effect.repeat(
-      Schedule.forever.pipe(
-        Schedule.untilOutputEffect(() =>
-          Ref.get(game.isPaused).pipe(
-            Effect.andThen(isPaused =>
-              Effect.async<boolean>(resume => {
-                requestAnimationFrame(() => resume(Effect.succeed(isPaused)));
-              }),
-            ),
-          ),
-        ),
-      ),
-    ),
+    Effect.andThen(nextAnimationFrame()),
+    Effect.repeat(Schedule.forever),
     Effect.provide(game.staticContext),
   );
 
