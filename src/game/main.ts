@@ -10,7 +10,6 @@ type StaticContext = CanvasContext | ThemeContext | FpsContext;
 export interface IGame {
   canvas: ICanvas;
   staticContext: Context.Context<StaticContext>;
-  isPaused: Ref.Ref<boolean>;
 }
 
 export const createGame = (canvas: ICanvas) =>
@@ -21,15 +20,13 @@ export const createGame = (canvas: ICanvas) =>
       lastFps: 0,
     });
 
-    const isPaused = yield* Ref.make(false);
-
     const staticContext = Context.empty().pipe(
       Context.add(CanvasContext, canvas),
       Context.add(ThemeContext, { text: { fontFamily: 'PingFangHK', fontSize: 16 } }),
       Context.add(FpsContext, fpsState),
     );
 
-    const game: IGame = { canvas, staticContext, isPaused };
+    const game: IGame = { canvas, staticContext };
     return game;
   });
 
@@ -55,5 +52,3 @@ export const startGame = (game: IGame) =>
     Effect.repeat(Schedule.forever),
     Effect.provide(game.staticContext),
   );
-
-export const pauseGame = (game: IGame) => Ref.set(game.isPaused, true);

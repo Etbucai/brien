@@ -24,10 +24,16 @@ function App() {
         height: canvasHeight,
         scale: dpr,
       });
-      yield* startGame(game);
+      const fiber = Effect.runFork(startGame(game));
+      const current = yield* Effect.fiberId;
+      const pauseGame = () => {
+        Effect.runFork(fiber.interruptAsFork(current));
+      };
+      return pauseGame;
     });
 
-    Effect.runFork(program);
+    const pauseGame = Effect.runSync(program);
+    return pauseGame;
   }, []);
 
   return (
