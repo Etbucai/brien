@@ -1,4 +1,4 @@
-import { Context, Effect, Ref, Schedule } from 'effect';
+import { Context, Effect, Random, Ref, Schedule } from 'effect';
 import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
 import { TimeContext } from './context/time';
@@ -8,7 +8,7 @@ import {
   ChipConfigContext,
   ChipMatrixContext,
   generateChipMatrix,
-  renderChipMatrix
+  renderChipMatrix,
 } from './widgets/chip';
 
 type StaticContext =
@@ -31,15 +31,23 @@ export const createGame = (canvas: ICanvas) =>
       lastFps: 0,
     });
 
-    const chipMatrix = yield* generateChipMatrix({ columnCount: 10, rowCount: 10 });
-
-    const staticContext = Context.empty().pipe(
+    const configContext = Context.empty().pipe(
       Context.add(CanvasContext, canvas),
       Context.add(ThemeContext, { text: { fontFamily: 'PingFangHK', fontSize: 16 } }),
       Context.add(FpsContext, fpsState),
-      Context.add(ChipConfigContext, { backgroundColor: 'gray', gap: 6, size: 16 }),
-      Context.add(ChipMatrixContext, chipMatrix),
+      Context.add(ChipConfigContext, {
+        backgroundColor: 'gray',
+        gap: 6,
+        size: 16,
+        columnCount: 10,
+        rowCount: 10,
+      }),
+      Context.add(Random.Random, Random.make('love')),
     );
+
+    const chipMatrix = yield* generateChipMatrix().pipe(Effect.provide(configContext));
+
+    const staticContext = configContext.pipe(Context.add(ChipMatrixContext, chipMatrix));
 
     const game: IGame = { canvas, staticContext };
     return game;
