@@ -3,9 +3,20 @@ import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
 import { TimeContext } from './context/time';
 import { FpsContext, FpsState } from './context/fps';
-import { renderFps } from './widgets/fps';
+// import { renderFps } from './widgets/fps';
+import {
+  ChipConfigContext,
+  ChipMatrixContext,
+  generateChipMatrix,
+  renderChipMatrix
+} from './widgets/chip';
 
-type StaticContext = CanvasContext | ThemeContext | FpsContext;
+type StaticContext =
+  | CanvasContext
+  | ThemeContext
+  | FpsContext
+  | ChipConfigContext
+  | ChipMatrixContext;
 
 export interface IGame {
   canvas: ICanvas;
@@ -20,10 +31,14 @@ export const createGame = (canvas: ICanvas) =>
       lastFps: 0,
     });
 
+    const chipMatrix = yield* generateChipMatrix({ columnCount: 10, rowCount: 10 });
+
     const staticContext = Context.empty().pipe(
       Context.add(CanvasContext, canvas),
       Context.add(ThemeContext, { text: { fontFamily: 'PingFangHK', fontSize: 16 } }),
       Context.add(FpsContext, fpsState),
+      Context.add(ChipConfigContext, { backgroundColor: 'gray', gap: 6, size: 16 }),
+      Context.add(ChipMatrixContext, chipMatrix),
     );
 
     const game: IGame = { canvas, staticContext };
@@ -33,7 +48,8 @@ export const createGame = (canvas: ICanvas) =>
 const updateFrame = ({ canvas }: IGame) =>
   Effect.gen(function* () {
     canvas.context.clearRect(0, 0, canvas.width, canvas.height);
-    yield* renderFps();
+    // yield* renderFps();
+    yield* renderChipMatrix();
   }).pipe(
     Effect.provideServiceEffect(
       TimeContext,
@@ -41,7 +57,7 @@ const updateFrame = ({ canvas }: IGame) =>
     ),
   );
 
-const nextAnimationFrame = () =>
+const nextAnimationFrame = (): Effect.Effect<void> =>
   Effect.async(resume => {
     requestAnimationFrame(() => resume(Effect.succeedNone));
   });
@@ -52,3 +68,9 @@ export const startGame = (game: IGame) =>
     Effect.repeat(Schedule.forever),
     Effect.provide(game.staticContext),
   );
+
+type A = typeof startGame;
+type B = ReturnType<A>;
+type C = B extends Effect.Effect<unknown, unknown, infer R> ? R : never;
+const n = 1 as unknown as C;
+export const $internalCheck: never = n;

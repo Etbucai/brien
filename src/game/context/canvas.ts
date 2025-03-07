@@ -26,3 +26,14 @@ export const fillText = Effect.serviceFunctionEffect(
   theme => (text: string, x: number, y: number, overwriteTextTheme?: Partial<TextTheme>) =>
     fillTextWithTheme(text, x, y, { ...theme.text, ...overwriteTextTheme }),
 );
+
+export const fillRect = Effect.serviceFunction(
+  CanvasContext,
+  ({ context, scale }) =>
+    (x: number, y: number, width: number, height: number, fillStyle: string) => {
+      context.save();
+      context.fillStyle = fillStyle;
+      context.fillRect(x * scale, y * scale, width * scale, height * scale);
+      context.restore();
+    },
+);
