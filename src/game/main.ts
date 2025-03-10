@@ -12,6 +12,7 @@ import {
   generateChipMatrix,
   renderChipMatrix,
 } from './widgets/chip';
+import { handleClickEvent } from './click';
 
 type StaticContext =
   | CanvasContext
@@ -25,28 +26,6 @@ export interface IGame {
   canvas: ICanvas;
   staticContext: Context.Context<StaticContext>;
 }
-
-const handleClickEvent = Effect.serviceFunctionEffect(
-  Effect.all([CanvasContext, ChipConfigContext, ChipMatrixStateContext]),
-  ([canvas, chipConfig, chipMatrixState]) =>
-    (event: MouseEvent) =>
-      Effect.gen(function* () {
-        const { x, y } = event;
-        const rect = canvas.context.canvas.getBoundingClientRect();
-        const offsetX = x - rect.x;
-        const offsetY = y - rect.y;
-        const isXHit = offsetX % (chipConfig.gap + chipConfig.size) < chipConfig.size;
-        const isYHit = offsetY % (chipConfig.gap + chipConfig.size) < chipConfig.size;
-        if (isXHit && isYHit) {
-          const targetColumnIndex = Math.ceil(offsetX / (chipConfig.gap + chipConfig.size)) - 1;
-          const targetRowIndex = Math.ceil(offsetY / (chipConfig.gap + chipConfig.size)) - 1;
-          const pos: [x: number, y: number] = [targetColumnIndex, targetRowIndex];
-          yield* Ref.set(chipMatrixState.selected, Option.some(pos));
-        } else {
-          yield* Ref.set(chipMatrixState.selected, Option.none());
-        }
-      }),
-);
 
 export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEvent>) =>
   Effect.gen(function* () {

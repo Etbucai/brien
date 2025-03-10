@@ -23,8 +23,10 @@ export interface Chip {
 
 export type ChipMatrix = Matrix<Chip>;
 
+export type Pos = [x: number, y: number];
+
 export interface ChipMatrixState {
-  selected: Ref.Ref<Option.Option<[x: number, y: number]>>;
+  selected: Ref.Ref<Option.Option<Pos>>;
 }
 
 export class ChipMatrixStateContext extends Context.Tag('ChipMatrixStateContext')<
