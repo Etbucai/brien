@@ -1,4 +1,4 @@
-import { Array, Context, Effect, Random } from 'effect';
+import { Array, Context, Effect, Option, Random, Ref } from 'effect';
 import { fillRect } from '@context/canvas';
 
 export interface ChipConfig {
@@ -22,6 +22,15 @@ export interface Chip {
 }
 
 export type ChipMatrix = Matrix<Chip>;
+
+export interface ChipMatrixState {
+  selected: Ref.Ref<Option.Option<[x: number, y: number]>>;
+}
+
+export class ChipMatrixStateContext extends Context.Tag('ChipMatrixStateContext')<
+  ChipMatrixStateContext,
+  ChipMatrixState
+>() {}
 
 export class ChipMatrixContext extends Context.Tag('ChipMatrixContext')<
   ChipMatrixContext,
@@ -103,23 +112,46 @@ export const generateChipMatrix = Effect.serviceFunctionEffect(
     }),
 );
 
+interface RenderChipOption {
+  x: number;
+  y: number;
+  color: string;
+  isSelected: boolean;
+}
+
 const renderChip = Effect.serviceFunctionEffect(
   ChipConfigContext,
-  chipConfig => (x: number, y: number, fillStyle: string) =>
-    fillRect(x, y, chipConfig.size, chipConfig.size, fillStyle),
+  chipConfig =>
+    ({ x, y, color, isSelected }: RenderChipOption) =>
+      Effect.gen(function* () {
+        if (isSelected) {
+          yield* fillRect(x - 2, y - 2, chipConfig.size + 4, chipConfig.size + 4, 'yellow');
+          yield* fillRect(x + 2, y + 2, chipConfig.size - 4, chipConfig.size - 4, color);
+        } else {
+          yield* fillRect(x, y, chipConfig.size, chipConfig.size, color);
+        }
+      }),
 );
 
 export const renderChipMatrix = Effect.serviceFunctionEffect(
-  Effect.all([ChipMatrixContext, ChipConfigContext]),
-  ([chipMatrix, chipConfig]) =>
+  Effect.all([ChipMatrixContext, ChipConfigContext, ChipMatrixStateContext]),
+  ([chipMatrix, chipConfig, chipMatrixState]) =>
     () =>
       Effect.forEach(chipMatrix, (chipRow, row) =>
         Effect.forEach(chipRow, (chip, column) =>
-          renderChip(
-            column * (chipConfig.size + chipConfig.gap),
-            row * (chipConfig.size + chipConfig.gap),
-            chip.color,
-          ),
+          Effect.gen(function* () {
+            const selectedPos = yield* Ref.get(chipMatrixState.selected);
+            const isSelfSelected = selectedPos.pipe(
+              Option.map(([x, y]) => x === column && y === row),
+              Option.getOrElse(() => false),
+            );
+            yield* renderChip({
+              x: column * (chipConfig.size + chipConfig.gap),
+              y: row * (chipConfig.size + chipConfig.gap),
+              color: chip.color,
+              isSelected: isSelfSelected,
+            });
+          }),
         ),
       ),
 );
