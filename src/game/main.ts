@@ -7,10 +7,12 @@ import { FpsContext, FpsState } from './context/fps';
 import {
   ChipConfig,
   ChipConfigContext,
+  ChipManager,
+  ChipManagerContext,
   ChipMatrixContext,
-  ChipMatrixStateContext,
   generateChipMatrix,
   renderChipMatrix,
+  Vec2,
 } from './widgets/chip';
 import { handleClickEvent } from './click';
 
@@ -19,13 +21,20 @@ type StaticContext =
   | ThemeContext
   | FpsContext
   | ChipConfigContext
-  | ChipMatrixContext
-  | ChipMatrixStateContext;
+  | ChipMatrixContext;
 
 export interface IGame {
   canvas: ICanvas;
   staticContext: Context.Context<StaticContext>;
 }
+
+type EnsureClearRequirement<T> = T extends (...args: never[]) => unknown
+  ? ReturnType<T> extends Effect.Effect<unknown, unknown, infer R>
+    ? [R] extends [never]
+      ? true
+      : [R]
+    : false
+  : false;
 
 export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEvent>) =>
   Effect.gen(function* () {
@@ -43,11 +52,9 @@ export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEven
       rowCount: 10,
     };
 
-    const selectedChip = yield* Ref.make(Option.none<[x: number, y: number]>());
-
-    const chipState = Context.make(ChipMatrixStateContext, {
-      selected: selectedChip,
-    });
+    const chipManager: ChipManager = {
+      nextChipId: yield* Ref.make(0),
+    };
 
     const configContext = Context.empty().pipe(
       Context.add(CanvasContext, canvas),
@@ -55,20 +62,27 @@ export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEven
       Context.add(FpsContext, fpsState),
       Context.add(ChipConfigContext, chipConfig),
       Context.add(Random.Random, Random.make('love')),
-      Context.merge(chipState),
-    );
-
-    Effect.runFork(
-      clickStream.pipe(Stream.runForEach(handleClickEvent), Effect.provide(configContext)),
+      Context.add(ChipManagerContext, chipManager),
     );
 
     const chipMatrix = yield* generateChipMatrix().pipe(Effect.provide(configContext));
 
-    const staticContext = configContext.pipe(Context.add(ChipMatrixContext, chipMatrix));
+    const chipState = Context.make(ChipMatrixContext, {
+      selected: yield* Ref.make(Option.none<Vec2>()),
+      matrix: yield* Ref.make(chipMatrix),
+    });
+
+    const staticContext = configContext.pipe(Context.merge(chipState));
+
+    Effect.runFork(
+      clickStream.pipe(Stream.runForEach(handleClickEvent), Effect.provide(staticContext)),
+    );
 
     const game: IGame = { canvas, staticContext };
     return game;
   });
+
+export const CREATE_GAME_GUARD: EnsureClearRequirement<typeof createGame> = true;
 
 const updateFrame = ({ canvas }: IGame) =>
   Effect.gen(function* () {
@@ -94,8 +108,4 @@ export const startGame = (game: IGame) =>
     Effect.provide(game.staticContext),
   );
 
-type A = typeof startGame;
-type B = ReturnType<A>;
-type C = B extends Effect.Effect<unknown, unknown, infer R> ? R : never;
-const n = 1 as unknown as C;
-export const $internalCheck: never = n;
+export const START_GAME_GUARD: EnsureClearRequirement<typeof startGame> = true;

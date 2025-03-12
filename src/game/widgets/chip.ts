@@ -1,5 +1,12 @@
-import { Array, Context, Effect, Option, Random, Ref } from 'effect';
+import { Array, Context, Data, Effect, Option, Random, Ref } from 'effect';
 import { fillRect } from '@context/canvas';
+
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+export const Vec2 = Data.case<Vec2>();
 
 export interface ChipConfig {
   size: number;
@@ -16,28 +23,23 @@ export class ChipConfigContext extends Context.Tag('ChipConfigContext')<
 
 export type Matrix<T> = T[][];
 
+const getItem = <T>(matrix: Matrix<T>, pos: Vec2) =>
+  Array.get(matrix, pos.y).pipe(Option.andThen(row => Array.get(row, pos.x)));
+
+const setItem = <T>(matrix: Matrix<T>, pos: Vec2, item: T) => (matrix[pos.y][pos.x] = item);
+
+export const Matrix = {
+  getItem,
+  setItem,
+};
+
 export interface Chip {
+  id: number;
   type: string;
   color: string;
 }
 
 export type ChipMatrix = Matrix<Chip>;
-
-export type Pos = [x: number, y: number];
-
-export interface ChipMatrixState {
-  selected: Ref.Ref<Option.Option<Pos>>;
-}
-
-export class ChipMatrixStateContext extends Context.Tag('ChipMatrixStateContext')<
-  ChipMatrixStateContext,
-  ChipMatrixState
->() {}
-
-export class ChipMatrixContext extends Context.Tag('ChipMatrixContext')<
-  ChipMatrixContext,
-  ChipMatrix
->() {}
 
 interface ChipMeta {
   type: string;
@@ -51,19 +53,50 @@ const chipMetaList: ChipMeta[] = [
   { type: 'd', color: 'white' },
 ];
 
+export interface ChipManager {
+  nextChipId: Ref.Ref<number>;
+}
+
+export class ChipManagerContext extends Context.Tag('ChipManagerContext')<
+  ChipManagerContext,
+  ChipManager
+>() {}
+
+export const createChip = Effect.serviceFunctionEffect(
+  ChipManagerContext,
+  chipManager => (type: string) =>
+    Effect.gen(function* () {
+      const meta = chipMetaList.find(it => it.type === type) || chipMetaList[0];
+      const chipId = yield* Ref.getAndUpdate(chipManager.nextChipId, a => a + 1);
+      const chip: Chip = {
+        id: chipId,
+        type: meta.type,
+        color: meta.color,
+      };
+      return chip;
+    }),
+);
+
+export interface ChipMatrixState {
+  matrix: Ref.Ref<ChipMatrix>;
+  selected: Ref.Ref<Option.Option<Vec2>>;
+}
+
+export class ChipMatrixContext extends Context.Tag('ChipMatrixContext')<
+  ChipMatrixContext,
+  ChipMatrixState
+>() {}
+
 const pureRandomChipMatrix = Effect.serviceFunctionEffect(
   Effect.all([ChipConfigContext, Random.Random]),
   ([chipConfig, random]) =>
-    (): Effect.Effect<ChipMatrix> => {
+    () => {
       const a = Array.makeBy(chipConfig.rowCount, () =>
         Array.makeBy(chipConfig.columnCount, () =>
           Effect.gen(function* () {
             const metaIdx = yield* random.nextIntBetween(0, chipMetaList.length);
             const meta = chipMetaList[metaIdx];
-            const chip: Chip = {
-              type: meta.type,
-              color: meta.color,
-            };
+            const chip = yield* createChip(meta.type);
             return chip;
           }),
         ),
@@ -101,10 +134,7 @@ export const generateChipMatrix = Effect.serviceFunctionEffect(
             const metaList = chipMetaList.filter(it => !blackList.includes(it.type));
             const metaIndex = yield* random.nextIntBetween(0, metaList.length - 1);
             const meta = metaList[metaIndex];
-            const newChip: Chip = {
-              type: meta.type,
-              color: meta.color,
-            };
+            const newChip = yield* createChip(meta.type);
             return newChip;
           }),
         ),
@@ -135,25 +165,35 @@ const renderChip = Effect.serviceFunctionEffect(
       }),
 );
 
+const iterateChip = Effect.serviceFunctionEffect(
+  ChipMatrixContext,
+  chipMatrixState =>
+    <A, E, R>(f: (row: number, column: number, chip: Chip) => Effect.Effect<A, E, R>) =>
+      Effect.gen(function* () {
+        const matrix = yield* Ref.get(chipMatrixState.matrix);
+        yield* Effect.forEach(matrix, (chipRow, row) =>
+          Effect.forEach(chipRow, (chip, column) => f(row, column, chip)),
+        );
+      }),
+);
+
 export const renderChipMatrix = Effect.serviceFunctionEffect(
-  Effect.all([ChipMatrixContext, ChipConfigContext, ChipMatrixStateContext]),
-  ([chipMatrix, chipConfig, chipMatrixState]) =>
+  Effect.all([ChipConfigContext, ChipMatrixContext]),
+  ([chipConfig, chipMatrixState]) =>
     () =>
-      Effect.forEach(chipMatrix, (chipRow, row) =>
-        Effect.forEach(chipRow, (chip, column) =>
-          Effect.gen(function* () {
-            const selectedPos = yield* Ref.get(chipMatrixState.selected);
-            const isSelfSelected = selectedPos.pipe(
-              Option.map(([x, y]) => x === column && y === row),
-              Option.getOrElse(() => false),
-            );
-            yield* renderChip({
-              x: column * (chipConfig.size + chipConfig.gap),
-              y: row * (chipConfig.size + chipConfig.gap),
-              color: chip.color,
-              isSelected: isSelfSelected,
-            });
-          }),
-        ),
+      iterateChip((row, column, chip) =>
+        Effect.gen(function* () {
+          const selectedPos = yield* Ref.get(chipMatrixState.selected);
+          const isSelfSelected = selectedPos.pipe(
+            Option.map(({ x, y }) => x === column && y === row),
+            Option.getOrElse(() => false),
+          );
+          yield* renderChip({
+            x: column * (chipConfig.size + chipConfig.gap),
+            y: row * (chipConfig.size + chipConfig.gap),
+            color: chip.color,
+            isSelected: isSelfSelected,
+          });
+        }),
       ),
 );
