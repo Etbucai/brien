@@ -1,81 +1,12 @@
-import { Array, Context, Data, Effect, Option, Random, Ref } from 'effect';
+import { Context, Effect, Option, Random, Ref, Array } from 'effect';
+import { Matrix } from '@utils/matrix';
+import { Vec2 } from '@utils/vec2';
 import { fillRect } from '@context/canvas';
-
-export interface Vec2 {
-  x: number;
-  y: number;
-}
-
-export const Vec2 = Data.case<Vec2>();
-
-export interface ChipConfig {
-  size: number;
-  gap: number;
-  backgroundColor: string;
-  columnCount: number;
-  rowCount: number;
-}
-
-export class ChipConfigContext extends Context.Tag('ChipConfigContext')<
-  ChipConfigContext,
-  ChipConfig
->() {}
-
-export type Matrix<T> = T[][];
-
-const getItem = <T>(matrix: Matrix<T>, pos: Vec2) =>
-  Array.get(matrix, pos.y).pipe(Option.andThen(row => Array.get(row, pos.x)));
-
-const setItem = <T>(matrix: Matrix<T>, pos: Vec2, item: T) => (matrix[pos.y][pos.x] = item);
-
-export const Matrix = {
-  getItem,
-  setItem,
-};
-
-export interface Chip {
-  id: number;
-  type: string;
-  color: string;
-}
+import { Chip } from './chip';
+import { ChipConfigContext } from './config';
+import { chipMetaList, createChip } from './manager';
 
 export type ChipMatrix = Matrix<Chip>;
-
-interface ChipMeta {
-  type: string;
-  color: string;
-}
-
-const chipMetaList: ChipMeta[] = [
-  { type: 'a', color: 'black' },
-  { type: 'b', color: 'red' },
-  { type: 'c', color: 'blue' },
-  { type: 'd', color: 'white' },
-];
-
-export interface ChipManager {
-  nextChipId: Ref.Ref<number>;
-}
-
-export class ChipManagerContext extends Context.Tag('ChipManagerContext')<
-  ChipManagerContext,
-  ChipManager
->() {}
-
-export const createChip = Effect.serviceFunctionEffect(
-  ChipManagerContext,
-  chipManager => (type: string) =>
-    Effect.gen(function* () {
-      const meta = chipMetaList.find(it => it.type === type) || chipMetaList[0];
-      const chipId = yield* Ref.getAndUpdate(chipManager.nextChipId, a => a + 1);
-      const chip: Chip = {
-        id: chipId,
-        type: meta.type,
-        color: meta.color,
-      };
-      return chip;
-    }),
-);
 
 export interface ChipMatrixState {
   matrix: Ref.Ref<ChipMatrix>;

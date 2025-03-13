@@ -1,20 +1,14 @@
 import { Context, Effect, Option, Random, Ref, Schedule, Stream } from 'effect';
+import { Vec2 } from '@utils/vec2';
 import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
 import { TimeContext } from './context/time';
 import { FpsContext, FpsState } from './context/fps';
 // import { renderFps } from './widgets/fps';
-import {
-  ChipConfig,
-  ChipConfigContext,
-  ChipManager,
-  ChipManagerContext,
-  ChipMatrixContext,
-  generateChipMatrix,
-  renderChipMatrix,
-  Vec2,
-} from './widgets/chip';
 import { handleClickEvent } from './click';
+import { ChipConfig, ChipConfigContext } from './widgets/chip/config';
+import { ChipMatrixContext, generateChipMatrix, renderChipMatrix } from './widgets/chip/matrix';
+import { ChipManager, ChipManagerContext } from './widgets/chip/manager';
 
 type StaticContext =
   | CanvasContext

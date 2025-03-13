@@ -1,7 +1,10 @@
 import { Effect, Equal, Option, Ref } from 'effect';
+import { Vec2 } from '@utils/vec2';
+import { Matrix } from '@utils/matrix';
 import { CanvasContext } from './context/canvas';
-import { ChipConfigContext, ChipMatrixContext, Matrix, Vec2 } from './widgets/chip';
 import { updateRef } from './utils/updateRef';
+import { ChipConfigContext } from './widgets/chip/config';
+import { ChipMatrixContext } from './widgets/chip/matrix';
 
 const getPointerTarget = (event: MouseEvent) =>
   Effect.gen(function* () {

@@ -23,7 +23,8 @@
     "noUncheckedSideEffectImports": true,
 
     "paths": {
-      "@context/*": ["./src/game/context/*"]
+      "@context/*": ["./src/game/context/*"],
+      "@utils/*": ["./src/game/utils/*"]
     }
   },
   "include": ["src"]
