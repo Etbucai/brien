@@ -1,6 +1,6 @@
-import { Context, Effect, Option, Random, Ref, Array } from 'effect';
+import { Context, Effect, Option, Random, Ref, Array, HashMap } from 'effect';
 import { Matrix } from '@utils/matrix';
-import { Vec2 } from '@utils/vec2';
+import { emptyVec2, Vec2 } from '@utils/vec2';
 import { fillRect } from '@context/canvas';
 import { Chip } from './chip';
 import { ChipConfigContext } from './config';
@@ -8,15 +8,31 @@ import { chipMetaList, createChip } from './manager';
 
 export type ChipMatrix = Matrix<Chip>;
 
+export interface ChipTween {
+  offset: Vec2;
+}
+
 export interface ChipMatrixState {
   matrix: Ref.Ref<ChipMatrix>;
   selected: Ref.Ref<Option.Option<Vec2>>;
+  tweenMap: Ref.Ref<HashMap.HashMap<number, ChipTween>>;
 }
 
 export class ChipMatrixContext extends Context.Tag('ChipMatrixContext')<
   ChipMatrixContext,
   ChipMatrixState
 >() {}
+
+export const makeChipMatrixState = () =>
+  Effect.gen(function* () {
+    const chipMatrix = yield* generateChipMatrix();
+    const state: ChipMatrixState = {
+      selected: yield* Ref.make(Option.none<Vec2>()),
+      matrix: yield* Ref.make(chipMatrix),
+      tweenMap: yield* Ref.make(HashMap.empty<number, ChipTween>()),
+    };
+    return state;
+  });
 
 const pureRandomChipMatrix = Effect.serviceFunctionEffect(
   Effect.all([ChipConfigContext, Random.Random]),
@@ -119,9 +135,15 @@ export const renderChipMatrix = Effect.serviceFunctionEffect(
             Option.map(({ x, y }) => x === column && y === row),
             Option.getOrElse(() => false),
           );
+          const tweenMap = yield* Ref.get(chipMatrixState.tweenMap);
+          const offset = HashMap.get(tweenMap, chip.id).pipe(
+            Option.map(it => it.offset),
+            Option.getOrElse(emptyVec2),
+          );
+          
           yield* renderChip({
-            x: column * (chipConfig.size + chipConfig.gap),
-            y: row * (chipConfig.size + chipConfig.gap),
+            x: column * (chipConfig.size + chipConfig.gap) + offset.x,
+            y: row * (chipConfig.size + chipConfig.gap) + offset.y,
             color: chip.color,
             isSelected: isSelfSelected,
           });

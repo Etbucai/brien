@@ -1,5 +1,5 @@
-import { Effect, Equal, Option, Ref } from 'effect';
-import { Vec2 } from '@utils/vec2';
+import { Console, Effect, Equal, flow, HashMap, Option, Ref } from 'effect';
+import { scaleVec2, subVec2, Vec2 } from '@utils/vec2';
 import { Matrix } from '@utils/matrix';
 import { CanvasContext } from './context/canvas';
 import { updateRef } from './utils/updateRef';
@@ -61,6 +61,25 @@ export const handleClickEvent = (event: MouseEvent) =>
         Matrix.setItem(draft, currentPos, targetChip);
       });
       yield* Ref.set(chipMatrix.selected, Option.none());
+      const chipConfig = yield* ChipConfigContext;
+      yield* Ref.update(
+        chipMatrix.tweenMap,
+        flow(
+          HashMap.set(currentChip.id, {
+            offset: scaleVec2(
+              subVec2(targetPos, currentPos),
+              -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
+            ),
+          }),
+          HashMap.set(targetChip.id, {
+            offset: scaleVec2(
+              subVec2(currentPos, targetPos),
+              -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
+            ),
+          }),
+        ),
+      );
+      yield* Ref.get(chipMatrix.tweenMap).pipe(Effect.andThen(Console.log));
       return;
     }
 

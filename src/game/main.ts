@@ -1,5 +1,4 @@
-import { Context, Effect, Option, Random, Ref, Schedule, Stream } from 'effect';
-import { Vec2 } from '@utils/vec2';
+import { Context, Effect, Random, Ref, Schedule, Stream } from 'effect';
 import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
 import { TimeContext } from './context/time';
@@ -7,7 +6,7 @@ import { FpsContext, FpsState } from './context/fps';
 // import { renderFps } from './widgets/fps';
 import { handleClickEvent } from './click';
 import { ChipConfig, ChipConfigContext } from './widgets/chip/config';
-import { ChipMatrixContext, generateChipMatrix, renderChipMatrix } from './widgets/chip/matrix';
+import { ChipMatrixContext, makeChipMatrixState, renderChipMatrix } from './widgets/chip/matrix';
 import { ChipManager, ChipManagerContext } from './widgets/chip/manager';
 
 type StaticContext =
@@ -59,12 +58,10 @@ export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEven
       Context.add(ChipManagerContext, chipManager),
     );
 
-    const chipMatrix = yield* generateChipMatrix().pipe(Effect.provide(configContext));
-
-    const chipState = Context.make(ChipMatrixContext, {
-      selected: yield* Ref.make(Option.none<Vec2>()),
-      matrix: yield* Ref.make(chipMatrix),
-    });
+    const chipState = Context.make(
+      ChipMatrixContext,
+      yield* makeChipMatrixState().pipe(Effect.provide(configContext)),
+    );
 
     const staticContext = configContext.pipe(Context.merge(chipState));
 
