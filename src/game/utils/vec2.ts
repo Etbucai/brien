@@ -13,6 +13,12 @@ export const subVec2 = (self: Vec2, target: Vec2): Vec2 =>
     y: self.y - target.y,
   });
 
+export const addVec2 = (self: Vec2, target: Vec2): Vec2 =>
+  Vec2({
+    x: self.x + target.x,
+    y: self.y + target.y,
+  });
+
 export const scaleVec2 = (self: Vec2, factor: number): Vec2 =>
   Vec2({
     x: self.x * factor,

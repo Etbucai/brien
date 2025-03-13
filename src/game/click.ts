@@ -1,10 +1,11 @@
-import { Console, Effect, Equal, flow, HashMap, Option, Ref } from 'effect';
-import { scaleVec2, subVec2, Vec2 } from '@utils/vec2';
+import { Effect, Equal, flow, HashMap, Option, Ref } from 'effect';
+import { addVec2, emptyVec2, scaleVec2, subVec2, Vec2 } from '@utils/vec2';
 import { Matrix } from '@utils/matrix';
 import { CanvasContext } from './context/canvas';
 import { updateRef } from './utils/updateRef';
 import { ChipConfigContext } from './widgets/chip/config';
 import { ChipMatrixContext } from './widgets/chip/matrix';
+import { TimeContext } from '@context/time';
 
 const getPointerTarget = (event: MouseEvent) =>
   Effect.gen(function* () {
@@ -62,28 +63,42 @@ export const handleClickEvent = (event: MouseEvent) =>
       });
       yield* Ref.set(chipMatrix.selected, Option.none());
       const chipConfig = yield* ChipConfigContext;
+      const diff = subVec2(targetPos, currentPos);
+      const scaleFactor = chipConfig.gap + chipConfig.size;
+      const duration = 120;
+      const currentChipTween = yield* linear(scaleVec2(diff, -scaleFactor), emptyVec2(), duration);
+      const targetChipTween = yield* linear(scaleVec2(diff, scaleFactor), emptyVec2(), duration);
       yield* Ref.update(
         chipMatrix.tweenMap,
         flow(
           HashMap.set(currentChip.id, {
-            offset: scaleVec2(
-              subVec2(targetPos, currentPos),
-              -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
-            ),
+            getOffset: currentChipTween,
             z: 2,
           }),
           HashMap.set(targetChip.id, {
-            offset: scaleVec2(
-              subVec2(currentPos, targetPos),
-              -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
-            ),
+            getOffset: targetChipTween,
             z: 1,
           }),
         ),
       );
-      yield* Ref.get(chipMatrix.tweenMap).pipe(Effect.andThen(Console.log));
       return;
     }
 
     yield* Ref.set(chipMatrix.selected, Option.some(targetPos));
+  }).pipe(
+    Effect.provideServiceEffect(
+      TimeContext,
+      Effect.sync(() => ({ timestamp: Date.now() })),
+    ),
+  );
+
+const linear = (from: Vec2, target: Vec2, duration: number) =>
+  Effect.gen(function* () {
+    const { timestamp: startTs } = yield* TimeContext;
+    const diff = subVec2(target, from);
+    return Effect.gen(function* () {
+      const { timestamp: nowTs } = yield* TimeContext;
+      const ratio = Math.min(1, (nowTs - startTs) / duration);
+      return addVec2(from, scaleVec2(diff, ratio));
+    });
   });

@@ -1,17 +1,18 @@
 import { Context, Effect, Option, Random, Ref, Array, HashMap, Order } from 'effect';
+import { pipe } from 'effect/Function';
+import { fillRect } from '@context/canvas';
+import { TimeContext } from '@context/time';
 import { Matrix } from '@utils/matrix';
 import { emptyVec2, Vec2 } from '@utils/vec2';
-import { fillRect } from '@context/canvas';
+import { chipMetaList, createChip } from './manager';
 import { Chip } from './chip';
 import { ChipConfigContext } from './config';
-import { chipMetaList, createChip } from './manager';
-import { constant, pipe } from 'effect/Function';
 
 export type ChipMatrix = Matrix<Chip>;
 
 export interface ChipTween {
-  offset: Vec2;
   z: number;
+  getOffset: Effect.Effect<Vec2, never, TimeContext>;
 }
 
 export interface ChipMatrixState {
@@ -138,9 +139,19 @@ export const renderChipMatrix = () =>
           Option.getOrElse(() => false),
         );
         const tweenMap = yield* Ref.get(chipMatrixState.tweenMap);
-        const { offset, z } = HashMap.get(tweenMap, chip.id).pipe(
-          Option.getOrElse(constant<ChipTween>({ offset: emptyVec2(), z: 0 })),
+        const tween = HashMap.get(tweenMap, chip.id);
+        const r = tween.pipe(
+          Option.map(it =>
+            Effect.gen(function* () {
+              return {
+                z: it.z,
+                offset: yield* it.getOffset,
+              };
+            }),
+          ),
+          Option.getOrElse(() => Effect.succeed({ z: 0, offset: emptyVec2() })),
         );
+        const { z, offset } = yield* r;
 
         const render = renderChip({
           x: column * (chipConfig.size + chipConfig.gap) + offset.x,
