@@ -1,15 +1,17 @@
-import { Context, Effect, Option, Random, Ref, Array, HashMap } from 'effect';
+import { Context, Effect, Option, Random, Ref, Array, HashMap, Order } from 'effect';
 import { Matrix } from '@utils/matrix';
 import { emptyVec2, Vec2 } from '@utils/vec2';
 import { fillRect } from '@context/canvas';
 import { Chip } from './chip';
 import { ChipConfigContext } from './config';
 import { chipMetaList, createChip } from './manager';
+import { constant, pipe } from 'effect/Function';
 
 export type ChipMatrix = Matrix<Chip>;
 
 export interface ChipTween {
   offset: Vec2;
+  z: number;
 }
 
 export interface ChipMatrixState {
@@ -112,41 +114,48 @@ const renderChip = Effect.serviceFunctionEffect(
       }),
 );
 
-const iterateChip = Effect.serviceFunctionEffect(
-  ChipMatrixContext,
-  chipMatrixState =>
-    <A, E, R>(f: (row: number, column: number, chip: Chip) => Effect.Effect<A, E, R>) =>
-      Effect.gen(function* () {
-        const matrix = yield* Ref.get(chipMatrixState.matrix);
-        yield* Effect.forEach(matrix, (chipRow, row) =>
-          Effect.forEach(chipRow, (chip, column) => f(row, column, chip)),
-        );
-      }),
-);
+const iterateChip = <A, E, R>(
+  f: (row: number, column: number, chip: Chip) => Effect.Effect<A, E, R>,
+) =>
+  Effect.gen(function* () {
+    const chipMatrixState = yield* ChipMatrixContext;
+    const matrix = yield* Ref.get(chipMatrixState.matrix);
+    const resultEffectMatrix = matrix.map((row, rowIndex) =>
+      row.map((chip, columnIndex) => f(rowIndex, columnIndex, chip)),
+    );
+    const resultMatrix = yield* Effect.all(resultEffectMatrix.map(it => Effect.all(it)));
+    return resultMatrix;
+  });
 
-export const renderChipMatrix = Effect.serviceFunctionEffect(
-  Effect.all([ChipConfigContext, ChipMatrixContext]),
-  ([chipConfig, chipMatrixState]) =>
-    () =>
-      iterateChip((row, column, chip) =>
-        Effect.gen(function* () {
-          const selectedPos = yield* Ref.get(chipMatrixState.selected);
-          const isSelfSelected = selectedPos.pipe(
-            Option.map(({ x, y }) => x === column && y === row),
-            Option.getOrElse(() => false),
-          );
-          const tweenMap = yield* Ref.get(chipMatrixState.tweenMap);
-          const offset = HashMap.get(tweenMap, chip.id).pipe(
-            Option.map(it => it.offset),
-            Option.getOrElse(emptyVec2),
-          );
-          
-          yield* renderChip({
-            x: column * (chipConfig.size + chipConfig.gap) + offset.x,
-            y: row * (chipConfig.size + chipConfig.gap) + offset.y,
-            color: chip.color,
-            isSelected: isSelfSelected,
-          });
-        }),
-      ),
-);
+export const renderChipMatrix = () =>
+  Effect.gen(function* () {
+    const [chipConfig, chipMatrixState] = yield* Effect.all([ChipConfigContext, ChipMatrixContext]);
+    const result = yield* iterateChip((row, column, chip) =>
+      Effect.gen(function* () {
+        const selectedPos = yield* Ref.get(chipMatrixState.selected);
+        const isSelfSelected = selectedPos.pipe(
+          Option.map(({ x, y }) => x === column && y === row),
+          Option.getOrElse(() => false),
+        );
+        const tweenMap = yield* Ref.get(chipMatrixState.tweenMap);
+        const { offset, z } = HashMap.get(tweenMap, chip.id).pipe(
+          Option.getOrElse(constant<ChipTween>({ offset: emptyVec2(), z: 0 })),
+        );
+
+        const render = renderChip({
+          x: column * (chipConfig.size + chipConfig.gap) + offset.x,
+          y: row * (chipConfig.size + chipConfig.gap) + offset.y,
+          color: chip.color,
+          isSelected: isSelfSelected,
+        });
+        return { render, z };
+      }),
+    );
+    const renderEffects = pipe(
+      result,
+      Array.flatten,
+      Array.sortBy(Order.mapInput(Order.number, it => it.z)),
+      Array.map(it => it.render),
+    );
+    yield* Effect.all(renderEffects);
+  });

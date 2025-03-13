@@ -70,12 +70,14 @@ export const handleClickEvent = (event: MouseEvent) =>
               subVec2(targetPos, currentPos),
               -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
             ),
+            z: 2,
           }),
           HashMap.set(targetChip.id, {
             offset: scaleVec2(
               subVec2(currentPos, targetPos),
               -1 * (1 - 0.3) * (chipConfig.gap + chipConfig.size),
             ),
+            z: 1,
           }),
         ),
       );
