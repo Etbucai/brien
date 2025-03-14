@@ -5,7 +5,7 @@ import { CanvasContext } from './context/canvas';
 import { updateRef } from './utils/updateRef';
 import { ChipConfigContext } from './widgets/chip/config';
 import { ChipMatrixContext } from './widgets/chip/matrix';
-import { TimeContext } from '@context/time';
+import { getNow } from '@context/time';
 
 const getPointerTarget = (event: MouseEvent) =>
   Effect.gen(function* () {
@@ -85,19 +85,14 @@ export const handleClickEvent = (event: MouseEvent) =>
     }
 
     yield* Ref.set(chipMatrix.selected, Option.some(targetPos));
-  }).pipe(
-    Effect.provideServiceEffect(
-      TimeContext,
-      Effect.sync(() => ({ timestamp: Date.now() })),
-    ),
-  );
+  });
 
 const linear = (from: Vec2, target: Vec2, duration: number) =>
   Effect.gen(function* () {
-    const { timestamp: startTs } = yield* TimeContext;
+    const startTs = yield* getNow();
     const diff = subVec2(target, from);
     return Effect.gen(function* () {
-      const { timestamp: nowTs } = yield* TimeContext;
+      const nowTs = yield* getNow();
       const ratio = Math.min(1, (nowTs - startTs) / duration);
       return addVec2(from, scaleVec2(diff, ratio));
     });

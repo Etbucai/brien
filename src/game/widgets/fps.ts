@@ -1,23 +1,23 @@
 import { Effect, Ref } from 'effect';
 import { fillTextWithTheme } from '@context/canvas';
-import { TimeContext } from '@context/time';
+import { getNow } from '@context/time';
 import { FpsContext } from '@context/fps';
 import { updateRef } from '../utils/updateRef';
 
-const updateFps = Effect.serviceFunctionEffect(
-  Effect.all([FpsContext, TimeContext]),
-  ([fpsStateRef, { timestamp }]) =>
-    () =>
-      updateRef(fpsStateRef, draft => {
-        if (timestamp - draft.lastFlushTime < 1000) {
-          draft.frameCount += 1;
-        } else {
-          draft.lastFps = draft.frameCount;
-          draft.frameCount = 0;
-          draft.lastFlushTime = timestamp;
-        }
-      }),
-);
+const updateFps = () =>
+  Effect.gen(function* () {
+    const fpsStateRef = yield* FpsContext;
+    const now = yield* getNow();
+    updateRef(fpsStateRef, draft => {
+      if (now - draft.lastFlushTime < 1000) {
+        draft.frameCount += 1;
+      } else {
+        draft.lastFps = draft.frameCount;
+        draft.frameCount = 0;
+        draft.lastFlushTime = now;
+      }
+    });
+  });
 
 const getLastFps = Effect.serviceFunctionEffect(
   FpsContext,

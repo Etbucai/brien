@@ -1,7 +1,7 @@
 import { Context, Effect, Random, Ref, Schedule, Stream } from 'effect';
 import { CanvasContext, ICanvas } from './context/canvas';
 import { ThemeContext } from './context/theme';
-import { TimeContext } from './context/time';
+import { makeTimeState, TimeContext, updateNow } from './context/time';
 import { FpsContext, FpsState } from './context/fps';
 // import { renderFps } from './widgets/fps';
 import { handleClickEvent } from './click';
@@ -14,7 +14,8 @@ type StaticContext =
   | ThemeContext
   | FpsContext
   | ChipConfigContext
-  | ChipMatrixContext;
+  | ChipMatrixContext
+  | TimeContext;
 
 export interface IGame {
   canvas: ICanvas;
@@ -56,6 +57,7 @@ export const createGame = (canvas: ICanvas, clickStream: Stream.Stream<MouseEven
       Context.add(ChipConfigContext, chipConfig),
       Context.add(Random.Random, Random.make('love')),
       Context.add(ChipManagerContext, chipManager),
+      Context.add(TimeContext, yield* makeTimeState())
     );
 
     const chipState = Context.make(
@@ -78,14 +80,10 @@ export const CREATE_GAME_GUARD: EnsureClearRequirement<typeof createGame> = true
 const updateFrame = ({ canvas }: IGame) =>
   Effect.gen(function* () {
     canvas.context.clearRect(0, 0, canvas.width * canvas.scale, canvas.height * canvas.scale);
+    yield* updateNow();
     // yield* renderFps();
     yield* renderChipMatrix();
-  }).pipe(
-    Effect.provideServiceEffect(
-      TimeContext,
-      Effect.sync(() => ({ timestamp: Date.now() })),
-    ),
-  );
+  });
 
 const nextAnimationFrame = (): Effect.Effect<void> =>
   Effect.async(resume => {
